@@ -496,15 +496,33 @@
     aspect-ratio:auto;
     height:130px;
   }
-  .card-media-thumb{
-    padding:12px 16px 0;
+  .card-photo-btn{
+    display:block;position:relative;width:100%;padding:0;border:0;cursor:pointer;
     background:var(--card-bg);
   }
-  .card-media-thumb img{
-    width:84px;height:84px;
-    object-fit:cover;
-    border-radius:10px;
-    border:1px solid rgba(184,146,63,0.3);
+  .card-photo-btn img{
+    width:100%;aspect-ratio:4/3;object-fit:cover;display:block;
+  }
+  .photo-hint{
+    position:absolute;right:12px;bottom:12px;
+    background:rgba(14,24,56,0.88);color:#FFF8E6;
+    font-family:'Inter',sans-serif;font-size:14px;font-weight:600;
+    padding:8px 14px;border-radius:999px;border:1px solid rgba(184,146,63,0.6);
+  }
+  .card-media[data-photo]{cursor:zoom-in;}
+  .lightbox{
+    position:fixed;inset:0;z-index:9999;background:rgba(6,12,30,0.96);
+    display:flex;align-items:center;justify-content:center;padding:56px 12px 64px;
+  }
+  .lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;}
+  .lb-close{
+    position:absolute;top:10px;right:14px;width:44px;height:44px;border-radius:50%;
+    border:1px solid rgba(255,248,230,0.5);background:rgba(255,255,255,0.08);
+    color:#FFF8E6;font-size:30px;line-height:1;cursor:pointer;
+  }
+  .lb-orig{
+    position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    color:#E8C97A;font-size:15px;text-decoration:underline;
   }
   .card-media img{
     width:100%;
@@ -1106,7 +1124,9 @@
   function mediaHtml(entry){
     var extra = '';
     if(entry.photoId && (entry.videoId || entry.audioId)){
-      extra = '<div class="card-media-thumb"><img src="https://drive.google.com/thumbnail?id=' + entry.photoId + '&sz=w500" loading="lazy" alt="Photo shared by ' + escapeHtml(entry.name) + '" onerror="this.style.display=\'none\'"></div>';
+      extra = '<button type="button" class="card-photo-btn" data-full="https://drive.google.com/thumbnail?id=' + entry.photoId + '&sz=w1600" data-orig="https://drive.google.com/file/d/' + entry.photoId + '/view" aria-label="View photo shared by ' + escapeHtml(entry.name) + '">' +
+        '<img src="https://drive.google.com/thumbnail?id=' + entry.photoId + '&sz=w800" loading="lazy" alt="Photo shared by ' + escapeHtml(entry.name) + '" onerror="this.parentElement.style.display=\'none\'">' +
+        '<span class="photo-hint">Tap to view photo</span></button>';
     }
     if(entry.videoId){
       return '<div class="card-media">' +
@@ -1119,16 +1139,39 @@
         '</div>' + extra;
     }
     if(entry.localPhoto){
-      return '<div class="card-media" data-photo="1"><img src="' + entry.localPhoto + '" loading="lazy" alt="Photo shared by ' + escapeHtml(entry.name) + '"></div>';
+      return '<div class="card-media" data-photo="1" data-full="' + entry.localPhoto + '" data-orig="' + entry.localPhoto + '"><img src="' + entry.localPhoto + '" loading="lazy" alt="Photo shared by ' + escapeHtml(entry.name) + '"></div>';
     }
     if(entry.photoId){
-      return '<div class="card-media" data-photo="1">' +
+      return '<div class="card-media" data-photo="1" data-full="https://drive.google.com/thumbnail?id=' + entry.photoId + '&sz=w1600" data-orig="https://drive.google.com/file/d/' + entry.photoId + '/view">' +
         '<img src="https://drive.google.com/thumbnail?id=' + entry.photoId + '&sz=w1000" loading="lazy" alt="Photo shared by ' + escapeHtml(entry.name) + '" onerror="this.parentElement.classList.add(\'img-error\')">' +
         '<div class="media-fallback">Photo still loading? <a href="https://drive.google.com/file/d/' + entry.photoId + '/view" target="_blank" rel="noopener">Open original in Google Drive &#8599;</a></div>' +
         '</div>';
     }
     return '';
   }
+  /* ---------- PHOTO LIGHTBOX (tap any tribute photo to enlarge) ---------- */
+  (function(){
+    var box = null;
+    function close(){ if(box){ box.remove(); box = null; document.body.style.overflow = ''; } }
+    function open(full, orig){
+      close();
+      try { if(typeof playing !== 'undefined' && playing) setPlaying(false); } catch(e){}
+      box = document.createElement('div');
+      box.className = 'lightbox';
+      box.innerHTML = '<button type="button" class="lb-close" aria-label="Close photo">&times;</button>' +
+        '<img src="' + full + '" alt="Tribute photo">' +
+        '<a class="lb-orig" href="' + orig + '" target="_blank" rel="noopener">Open original &#8599;</a>';
+      box.addEventListener('click', function(e){ if(!e.target.closest('a')) close(); });
+      document.body.appendChild(box);
+      document.body.style.overflow = 'hidden';
+    }
+    document.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('[data-full]') : null;
+      if(el && el.getAttribute('data-full')){ e.preventDefault(); open(el.getAttribute('data-full'), el.getAttribute('data-orig') || el.getAttribute('data-full')); }
+    });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+  })();
+
   function cardHtml(entry){
     var tag = entry.tag ? '<span class="card-tag">' + escapeHtml(entry.tag) + '</span><br>' : '';
     return mediaHtml(entry) +
